@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -43,65 +43,8 @@
             max-width: 250px;
         }
         
-        /* Height Bar Container: Fixed size, relative position for inner elements */
-        .height-bar-container {
-            width: 70px; /* Reduced width for bar only */
-            height: 150px;
-            background-color: #e5e7eb;
-            border-radius: 4px;
-            overflow: visible; /* Allow labels to overflow */
-            position: relative; 
-            padding: 2px; /* Defines the drawing margin (146px height area) */
-            margin-left: auto;
-        }
-        
-        /* --- Ruler Styling --- */
-        .ruler-tick-line {
-            width: 10px; /* Longer ticks */
-            height: 2px;
-            background-color: #9ca3af;
-            position: absolute;
-            right: 2px; 
-            /* Centers the 1px line vertically on the 'bottom' position */
-            transform: translateY(50%); 
-        }
-        .ruler-label {
-            position: absolute;
-            right: 18px; /* Move label out further */
-            font-size: 10px;
-            color: #4b5563;
-            line-height: 1; /* Better centering control for text */
-            /* Centers the text vertically on the 'bottom' position */
-            transform: translateY(50%); 
-        }
+        /* NOTE: Height/Ruler related CSS classes have been removed for simplicity. */
 
-        /* Strong Line at 0 meters for the Ground/Base */
-        .ground-line {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background-color: #374151; /* Dark gray */
-            z-index: 100;
-        }
-        
-        /* --- Measurement Styling (Updated for range markers only) --- */
-        
-        /* Style for the range markers (Min and Max) - Solid Line */
-        .height-range-marker {
-            position: absolute;
-            background-color: transparent; 
-            border-top: 3px solid; /* Strong solid line */
-            width: 90%; 
-            height: 3px;
-            left: 50%;
-            /* Centers the line vertically on the 'bottom' position */
-            transform: translate(-50%, 50%); 
-            z-index: 10;
-            transition: all 0.3s ease-in-out;
-            border-radius: 1px;
-        }
     </style>
 </head>
 <body class="p-4 md:p-8 lg:p-12">
@@ -109,7 +52,7 @@
     <div class="max-w-7xl mx-auto">
         <header class="text-center mb-10">
             <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">Proportional Representation of Tree Measurements</h1>
-            <p class="text-lg text-gray-600">A proportional visualization of the tree girth and estimated height for each sample.</p>
+            <p class="text-lg text-gray-600">A proportional visualization of the tree diameter (DBH) and girth for each sample.</p>
             <div class="mt-3 text-sm text-gray-500 italic"></div>
         </header>
 
@@ -137,11 +80,7 @@
         ];
 
         const PI = Math.PI;
-        const MAX_VISUAL_SIZE = 180; // Max diameter size for the circle (in pixels) - slightly increased
-        const MAX_CONTAINER_HEIGHT = 150; // Total height of the container (with padding)
-        const CONTAINER_PADDING = 2; 
-        // Max visual height of the drawing area (150 - 4 = 146px)
-        const MAX_HEIGHT_VISUAL = MAX_CONTAINER_HEIGHT - (CONTAINER_PADDING * 2); 
+        const MAX_VISUAL_SIZE = 180; // Max diameter size for the circle (in pixels)
         
         // Realistic wood tones and corresponding card colors
         const typeColors = {
@@ -149,18 +88,12 @@
             'Cedar': { baseColor: '#B6886A', text: 'text-amber-800', lightBg: 'bg-amber-100', hover: 'hover:bg-amber-200', icon: '🌳', heightColor: '#533a14' }
         };
 
-        // 1. Calculate DBH, Average Height, and find the overall Max Diameter/Height
+        // 1. Calculate DBH and find the overall Max Diameter
         let maxDiameter = 0;
-        let maxHeight = 0;
         treeData.forEach(tree => {
             tree.diameter = tree.girth / PI; 
-            tree.height_avg = (tree.height_min + tree.height_max) / 2;
-            
             if (tree.diameter > maxDiameter) {
                 maxDiameter = tree.diameter;
-            }
-            if (tree.height_max > maxHeight) {
-                maxHeight = tree.height_max;
             }
         });
 
@@ -171,9 +104,6 @@
         
         const MAX_COMPARISON_WIDTH = 250;
         const circumferenceScaleFactor = MAX_COMPARISON_WIDTH / maxCircumference;
-
-        // Scale factor: pixels per meter
-        const heightScaleFactor = MAX_HEIGHT_VISUAL / maxHeight;
 
 
         /**
@@ -231,7 +161,6 @@
                 
                 group.innerHTML = `<h2 class="text-2xl font-bold mb-6 ${headerColorClass} border-b border-current pb-2">${siteName} Samples</h2>`;
 
-                // Increased gap from gap-6 to gap-8
                 const treeGrid = document.createElement('div');
                 treeGrid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8'; 
 
@@ -241,10 +170,6 @@
                     const visualDiameter = tree.diameter * diameterScaleFactor;
                     const visualCircumference = tree.girth * circumferenceScaleFactor;
                     
-                    // Scaled heights from the base (0m). 
-                    const visualHeightMin = tree.height_min * heightScaleFactor;
-                    const visualHeightMax = tree.height_max * heightScaleFactor;
-                    
                     const diameter = tree.diameter.toFixed(1);
                     const circumference = tree.girth.toFixed(1);
                     const conditionColor = getConditionColor(tree.condition);
@@ -253,14 +178,13 @@
                     treeCard.className = `flex flex-col p-4 ${colors.lightBg} rounded-xl shadow-lg transition duration-300 transform ${colors.hover} hover:shadow-xl`;
                     
                     
-                    // --- Top Row: Circle (DBH) and Height Visualization ---
+                    // --- Top Row: Circle (DBH) and Info ---
                     const topRow = document.createElement('div');
                     topRow.className = 'flex flex-row items-start mb-3';
                     
                     // 1. Circle Container (Diameter, D) - DBH visualization
                     const circleContainer = document.createElement('div');
                     circleContainer.className = 'flex items-center justify-center flex-shrink-0 mr-4';
-                    // Slightly adjusted for better centering
                     circleContainer.style.width = `${MAX_VISUAL_SIZE/2}px`; 
                     circleContainer.style.height = `${MAX_VISUAL_SIZE/2}px`;
 
@@ -273,95 +197,21 @@
                     
                     // 2. Info: Name, DBH, Condition
                     const infoBlock = document.createElement('div');
-                    infoBlock.className = 'flex flex-col flex-grow min-w-0';
+                    // Removed the large right margin since the height block is gone.
+                    infoBlock.className = 'flex flex-col flex-grow min-w-0'; 
                     infoBlock.innerHTML = `
                         <p class="text-sm font-bold ${colors.text} truncate">${colors.icon} ${tree.type} #${index + 1}</p>
                         <p class="text-xs text-gray-600">DBH (D): ${diameter} cm</p>
                         <p class="text-xs font-semibold ${conditionColor}">Condition: ${tree.condition}</p>
-                        <p class="text-xs font-semibold text-gray-800 mt-2">
-                            Avg. Height: ${tree.height_avg.toFixed(1)} m
+                        <p class="text-xs text-gray-500 mt-2">
+                            Height Range: ${tree.height_min}m to ${tree.height_max}m
                         </p>
                     `;
                     
                     topRow.appendChild(circleContainer);
                     topRow.appendChild(infoBlock);
 
-                    // 3. Height Visualization (Vertical Bar & Ruler)
-                    const heightBlock = document.createElement('div');
-                    heightBlock.className = 'flex flex-col items-center flex-shrink-0 ml-4';
-                    
-                    const heightViz = document.createElement('div');
-                    heightViz.className = 'height-bar-container';
-
-                    // --- Build Ruler Ticks ---
-                    let rulerHtml = '';
-                    // CHANGED: Ticks every 5 meters for a finer scale
-                    const tickInterval = 5; 
-                    
-                    // Create ticks from 0m up to the max height
-                    // We step by the interval (5m) and stop if the step exceeds the overall maxHeight (65m)
-                    for (let m = 0; m <= maxHeight; m += tickInterval) {
-                        const visualTickPosition = m * heightScaleFactor;
-                        
-                        // Stop drawing ticks if they exceed the visual area
-                        if (visualTickPosition > MAX_HEIGHT_VISUAL) continue;
-
-                        // Ruler tick line (centers the line vertically on the 'bottom' position)
-                        // Only display the label every 10 meters for less clutter
-                        const isMajorTick = (m % 10 === 0);
-                        const tickWidth = isMajorTick ? '10px' : '5px';
-                        const labelHtml = isMajorTick ? `<span 
-                                class="ruler-label" 
-                                style="bottom: ${visualTickPosition}px;">${m}m</span>` : '';
-
-                        rulerHtml += `
-                            <div 
-                                class="ruler-tick-line" 
-                                style="bottom: ${visualTickPosition}px; width: ${tickWidth};">
-                            </div>
-                            ${labelHtml}
-                        `;
-                    }
-                    // --- End Ruler Ticks ---
-
-                    // Elements are centered and positioned correctly from the bottom (0px is the base line)
-                    heightViz.innerHTML = `
-                        <div class="relative w-full h-full">
-                            
-                            ${rulerHtml}
-                            
-                            <!-- Min Height Marker (Orange) -->
-                            <div 
-                                class="height-range-marker" 
-                                style="bottom: ${visualHeightMin}px; border-top-color: #f97316;">
-                            </div>
-                            <!-- Min Height Label -->
-                            <span 
-                                class="absolute right-[78px] text-[9px] font-bold text-orange-600 w-[50px] text-right" 
-                                style="bottom: ${visualHeightMin}px; transform: translateY(50%);">
-                                ${tree.height_min}m (Min)
-                            </span>
-
-
-                            <!-- Max Height Marker (Emerald) -->
-                            <div 
-                                class="height-range-marker" 
-                                style="bottom: ${visualHeightMax}px; border-top-color: #10b981;">
-                            </div>
-                            <!-- Max Height Label -->
-                            <span 
-                                class="absolute right-[78px] text-[9px] font-bold text-emerald-600 w-[50px] text-right" 
-                                style="bottom: ${visualHeightMax}px; transform: translateY(50%);">
-                                ${tree.height_max}m (Max)
-                            </span>
-
-                            <!-- GROUND LINE (The 0m Reference) -->
-                            <div class="ground-line"></div>
-                        </div>
-                    `;
-
-                    heightBlock.appendChild(heightViz);
-                    topRow.appendChild(heightBlock);
+                    // --- Height visualization removed here ---
                     
                     // --- Circumference Line (Girth, C) ---
                     const circumferenceBlock = document.createElement('div');
