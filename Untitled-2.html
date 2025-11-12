@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tree Diameter and Circumference Visualization (Compact) with AI Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the visualization */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .tree-circle {
+            /* Ensures smooth transition for hover effects */
+            transition: all 0.3s ease-in-out;
+            cursor: default;
+            /* Flex properties ensure the internal text is centered */
+            flex-shrink: 0;
+        }
+        .tree-circle:hover {
+            box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.15), 0 3px 5px -2px rgba(0, 0, 0, 0.04);
+            transform: scale(1.02);
+        }
+        .circumference-line {
+            transition: width 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 lg:p-12">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">Compact Tree Sample Visualization</h1>
+            <p class="text-lg text-gray-600">Grouped by site to illustrate Diameter ($D$) vs. Calculated Circumference ($C$).</p>
+            <div class="mt-3 text-sm text-gray-500 italic">($C = D \times \pi$)</div>
+        </header>
+
+        <main id="visualization-container" class="space-y-8">
+            <!-- Content will be injected by JavaScript -->
+        </main>
+
+        <!-- New Section for Gemini Analysis -->
+        <div id="gemini-analysis-card" class="mt-16 p-6 sm:p-8 bg-white rounded-2xl shadow-2xl border-2 border-indigo-200">
+            <h2 class="text-2xl font-bold text-indigo-700 mb-4 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13.75M9 19h12M9 19c0 1.105 1.79 2 4 2s4-.895 4-2c0-.528-.485-1.125-1-1.35M21 16.75c0 1.105 1.79 2 4 2s4-.895 4-2V6L12 3v13.75M21 16.75c0 1.105-1.79 2-4 2s-4-.895-4-2" />
+                </svg>
+                AI Ecologist Analysis
+            </h2>
+            <div id="analysis-output" class="text-gray-700 italic min-h-[50px]">
+                Click an "Analyze Tree ✨" button to get a brief ecological interpretation.
+            </div>
+        </div>
+        <!-- End New Section -->
+
+        <div class="mt-16 pt-8 border-t border-gray-200 text-center">
+            <p class="text-sm text-gray-500">Visualization powered by JavaScript scaling logic.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- Gemini API Configuration ---
+        const API_KEY = ""; // Placeholder for Canvas environment API Key
+        const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=" + API_KEY;
+        const MAX_RETRIES = 5;
+
+        // Utility function for robust API calls
+        async function exponentialBackoffFetch(url, options, maxRetries = MAX_RETRIES) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429 && i < maxRetries - 1) {
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue; // Retry
+                    }
+                    if (!response.ok) {
+                        throw new Error(`API call failed with status: ${response.status}`);
+                    }
+                    return response.json();
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        console.error("Fetch failed after multiple retries:", error);
+                        throw error;
+                    }
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+            throw new Error("Exhausted all retries.");
+        }
+
+        /**
+         * Calls the Gemini API to get an ecological analysis of the tree data.
+         * @param {string} type - Tree species (e.g., "Douglas Fir").
+         * @param {number} diameter - Tree diameter in cm.
+         */
+        async function analyzeTree(type, diameter) {
+            const outputElement = document.getElementById('analysis-output');
+            const analysisCard = document.getElementById('gemini-analysis-card');
+
+            // 1. Set Loading State
+            outputElement.innerHTML = `<span class="text-indigo-500">Analyzing ${type} (D: ${diameter.toFixed(1)} cm)... <svg class="animate-spin h-5 w-5 inline ml-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>`;
+            analysisCard.scrollIntoView({ behavior: 'smooth' });
+
+            const systemPrompt = "You are a concise forest ecologist. Based on the provided tree species and its diameter in centimeters, provide a single, short paragraph (under 50 words) that interprets the tree's likely health, age, or ecological significance. Do not use markdown formatting like asterisks or headings.";
+            const userQuery = `Provide an ecological interpretation for a ${type} with a diameter of ${diameter.toFixed(1)} cm.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            try {
+                const response = await exponentialBackoffFetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const resultText = response?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (resultText) {
+                    outputElement.innerHTML = `
+                        <p class="text-lg font-medium text-gray-900">${type} #${treeData.find(t => t.type === type && t.diameter === diameter).index} Analysis:</p>
+                        <p>${resultText}</p>
+                    `;
+                } else {
+                    outputElement.innerHTML = '<span class="text-red-500">Analysis failed: Could not retrieve text from AI.</span>';
+                }
+
+            } catch (error) {
+                outputElement.innerHTML = `<span class="text-red-500">Error during API call: ${error.message}. Please check your connection or API configuration.</span>`;
+            }
+        }
+
+        // --- Visualization Logic ---
+        const treeData = [
+            // Data provided by the user, now grouped by site and assigned an original index for clarity
+            { type: "Douglas Fir", index: 1, diameter: 108, site: "Site One" },
+            { type: "Douglas Fir", index: 2, diameter: 99, site: "Site Two" },
+            { type: "Douglas Fir", index: 3, diameter: 103, site: "Site Two" },
+            { type: "Douglas Fir", index: 4, diameter: 118, site: "Site Two" },
+            { type: "Douglas Fir", index: 5, diameter: 23, site: "Site One" },
+            // Cedars
+            { type: "Cedar", index: 1, diameter: 82, site: "Site Two" },
+            { type: "Cedar", index: 2, diameter: 134, site: "Site Two" },
+            { type: "Cedar", index: 3, diameter: 143, site: "Site One" }
+        ];
+
+        const PI = Math.PI;
+        const MAX_VISUAL_SIZE = 160; 
+
+        // 1. Calculate Circumference and find the overall Max Diameter
+        let maxDiameter = 0;
+        treeData.forEach(tree => {
+            tree.circumference = tree.diameter * PI;
+            if (tree.diameter > maxDiameter) {
+                maxDiameter = tree.diameter;
+            }
+        });
+
+        // 2. Set Scaling Factor
+        const scaleFactor = MAX_VISUAL_SIZE / maxDiameter;
+
+        /**
+         * Renders the tree data visualization into the DOM, grouped by site.
+         */
+        function renderTrees() {
+            const container = document.getElementById('visualization-container');
+            if (!container) return;
+            container.innerHTML = ''; 
+
+            // Group data by SITE
+            const groupedData = treeData.reduce((acc, tree) => {
+                const siteName = tree.site || "Ungrouped";
+                if (!acc[siteName]) {
+                    acc[siteName] = [];
+                }
+                acc[siteName].push(tree);
+                return acc;
+            }, {});
+
+            const siteHeaderColors = {
+                'Site One': 'text-indigo-700',
+                'Site Two': 'text-blue-700',
+            }
+            const siteOrder = ['Site One', 'Site Two'];
+
+            siteOrder.forEach(siteName => {
+                const trees = groupedData[siteName];
+                if (!trees || trees.length === 0) return;
+
+                const group = document.createElement('div');
+                group.className = 'p-5 sm:p-6 bg-white rounded-2xl shadow-xl';
+
+                const headerColorClass = siteHeaderColors[siteName] || 'text-gray-800';
+                
+                group.innerHTML = `<h2 class="text-2xl font-bold mb-6 ${headerColorClass} border-b border-current pb-2">${siteName} Samples</h2>`;
+
+                const treeGrid = document.createElement('div');
+                treeGrid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6';
+
+                trees.forEach((tree) => {
+                    const typeColors = {
+                        'Douglas Fir': { bg: 'bg-green-600', text: 'text-green-800', lightBg: 'bg-green-50', hover: 'hover:bg-green-100' },
+                        'Cedar': { bg: 'bg-amber-600', text: 'text-amber-800', lightBg: 'bg-amber-50', hover: 'hover:bg-amber-100' }
+                    };
+                    const colors = typeColors[tree.type] || { bg: 'bg-gray-500', text: 'text-gray-800', lightBg: 'bg-gray-50', hover: 'hover:bg-gray-100' };
+
+                    const visualDiameter = tree.diameter * scaleFactor;
+                    const diameter = tree.diameter.toFixed(1);
+                    const circumference = tree.circumference.toFixed(1);
+
+                    const treeCard = document.createElement('div');
+                    treeCard.className = `flex flex-col p-4 ${colors.lightBg} rounded-xl shadow-lg transition duration-300 transform ${colors.hover} hover:shadow-xl`;
+                    
+                    
+                    // --- Top Row: Circle and Info ---
+                    const topRow = document.createElement('div');
+                    topRow.className = 'flex flex-row items-center mb-3';
+                    
+                    // 1. Circle Container (Diameter, D)
+                    const circleContainer = document.createElement('div');
+                    circleContainer.className = 'flex items-center justify-center flex-shrink-0 mr-4';
+                    circleContainer.style.width = `${MAX_VISUAL_SIZE/2}px`;
+                    circleContainer.style.height = `${MAX_VISUAL_SIZE/2}px`;
+
+                    const circle = document.createElement('div');
+                    circle.className = `tree-circle flex items-center justify-center ${colors.bg} rounded-full shadow-md`;
+                    circle.style.width = `${visualDiameter / 2}px`;
+                    circle.style.height = `${visualDiameter / 2}px`;
+                    circle.style.minWidth = '15px'; 
+                    circle.style.minHeight = '15px';
+
+                    circle.innerHTML = `<span class="text-white text-[10px] font-semibold p-1 pointer-events-none opacity-90 text-center">D: ${diameter}</span>`;
+                    circleContainer.appendChild(circle);
+                    
+                    // 2. Info: Name and Diameter
+                    const infoBlock = document.createElement('div');
+                    infoBlock.className = 'flex flex-col flex-grow min-w-0';
+                    infoBlock.innerHTML = `
+                        <p class="text-sm font-bold text-gray-800 truncate">${tree.type} #${tree.index}</p>
+                        <p class="text-xs text-gray-600">D: ${diameter} cm</p>
+                    `;
+                    topRow.appendChild(circleContainer);
+                    topRow.appendChild(infoBlock);
+
+                    // --- Circumference Line ---
+                    const circumferenceBlock = document.createElement('div');
+                    circumferenceBlock.className = 'w-full flex flex-col items-start pt-2 border-t border-gray-200 mb-3';
+                    
+                    const circumferenceLine = document.createElement('div');
+                    circumferenceLine.className = 'circumference-line bg-gray-900 h-1 rounded-full relative overflow-visible';
+                    const lineScaleFactor = (MAX_VISUAL_SIZE / 2) / maxDiameter; 
+                    circumferenceLine.style.width = `${tree.circumference * lineScaleFactor}px`;
+                    circumferenceLine.style.maxWidth = `${MAX_VISUAL_SIZE * PI / 2}px`;
+
+                    const circumferenceLabel = document.createElement('p');
+                    circumferenceLabel.className = `text-[11px] font-semibold text-gray-700 mt-1`;
+                    circumferenceLabel.innerHTML = `C: ${circumference} cm`; 
+                    
+                    circumferenceBlock.appendChild(circumferenceLine);
+                    circumferenceBlock.appendChild(circumferenceLabel);
+
+
+                    // --- Gemini Button ---
+                    const analyzeButton = document.createElement('button');
+                    analyzeButton.className = `w-full px-3 py-1.5 text-xs font-semibold rounded-lg text-white bg-indigo-500 hover:bg-indigo-600 transition duration-150 shadow-md`;
+                    analyzeButton.innerHTML = 'Analyze Tree ✨';
+                    analyzeButton.onclick = () => analyzeTree(tree.type, tree.diameter);
+
+                    // --- Assemble Card ---
+                    treeCard.appendChild(topRow);
+                    treeCard.appendChild(circumferenceBlock);
+                    treeCard.appendChild(analyzeButton);
+
+                    treeGrid.appendChild(treeCard);
+                });
+
+                group.appendChild(treeGrid);
+                container.appendChild(group);
+            });
+        }
+
+        // Run the rendering when the document is fully loaded
+        document.addEventListener('DOMContentLoaded', renderTrees);
+    </script>
+</body>
+</html>
