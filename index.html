@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tree Diameter and Circumference Visualization (Compact) with AI Analysis</title>
+    <title>Tree Girth and Projected Height Visualization</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom styles for the visualization */
@@ -11,19 +11,108 @@
             font-family: 'Inter', sans-serif;
             background-color: #f7f9fb;
         }
+        
+        /* Wood Grain Effect using CSS Gradients */
+        .woodgrain {
+            background-color: var(--wood-color);
+            background-image: repeating-linear-gradient(
+                45deg, rgba(0, 0, 0, 0.05) 0, rgba(0, 0, 0, 0.05) 1px, transparent 1px, transparent 10px
+            ), repeating-linear-gradient(
+                135deg, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 2px, transparent 2px, transparent 5px
+            );
+            background-size: 10px 10px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
         .tree-circle {
-            /* Ensures smooth transition for hover effects */
             transition: all 0.3s ease-in-out;
             cursor: default;
-            /* Flex properties ensure the internal text is centered */
             flex-shrink: 0;
+            border: 2px solid rgba(0, 0, 0, 0.2);
         }
         .tree-circle:hover {
-            box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.15), 0 3px 5px -2px rgba(0, 0, 0, 0.04);
-            transform: scale(1.02);
+            box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.25), 0 3px 5px -2px rgba(0, 0, 0, 0.04);
+            transform: scale(1.04);
         }
         .circumference-line {
             transition: width 0.3s ease-in-out;
+        }
+        /* Fixed max width for consistent proportional line comparison */
+        .girth-comparison-container {
+            width: 100%;
+            max-width: 250px;
+        }
+        
+        /* Height Bar Container: Fixed size, relative position for inner elements */
+        .height-bar-container {
+            width: 100px;
+            height: 150px;
+            background-color: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative; 
+            padding: 2px; /* Defines the drawing margin (146px height area) */
+            margin-left: auto;
+        }
+        
+        /* --- Ruler Styling --- */
+        .ruler-tick-line {
+            width: 5px;
+            height: 1px;
+            background-color: #9ca3af;
+            position: absolute;
+            right: 4px; /* Adjusted position */
+            /* Centers the 1px line vertically on the 'bottom' position */
+            transform: translateY(50%); 
+        }
+        .ruler-label {
+            position: absolute;
+            right: 14px; /* Adjusted position */
+            font-size: 9px;
+            color: #4b5563;
+            line-height: 1; /* Better centering control for text */
+            /* Centers the text vertically on the 'bottom' position */
+            transform: translateY(50%); 
+        }
+
+        /* Strong Line at 0 meters for the Ground/Base */
+        .ground-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: #374151; /* Dark gray */
+            z-index: 100;
+        }
+        
+        /* --- Measurement Styling (Updated for single bar and range markers) --- */
+        
+        /* Solid column showing the average height */
+        .average-height-bar {
+            position: absolute;
+            background-color: #a7f3d0; /* Very light green/teal for the main column */
+            width: 20px; 
+            left: 50%;
+            bottom: 0; /* MUST start at 0 */
+            transform: translateX(-50%);
+            border-radius: 2px 2px 0 0; /* Rounded top corners */
+            transition: all 0.3s ease-in-out;
+            z-index: 5;
+        }
+
+        /* Style for the range markers (Min and Max) - Dashed Line */
+        .height-range-marker {
+            position: absolute;
+            background-color: transparent; 
+            border-top: 2px dashed #059669; /* Darker, clearly visible green dashed line */
+            width: 35px; 
+            height: 3px;
+            left: 50%;
+            /* Centers the line vertically on the 'bottom' position */
+            transform: translate(-50%, 50%); 
+            z-index: 10;
+            transition: all 0.3s ease-in-out;
         }
     </style>
 </head>
@@ -31,8 +120,8 @@
 
     <div class="max-w-7xl mx-auto">
         <header class="text-center mb-10">
-            <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">Compact Tree Sample Visualization</h1>
-            <p class="text-lg text-gray-600">Grouped by site to illustrate Diameter ($D$) vs. Calculated Circumference ($C$).</p>
+            <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">Tree Girth & Projected Height Visualization</h1>
+            <p class="text-lg text-gray-600">A proportional visualization of DBH, Girth, and estimated height for each sample.</p>
             <div class="mt-3 text-sm text-gray-500 italic">($C = D \times \pi$)</div>
         </header>
 
@@ -40,129 +129,84 @@
             <!-- Content will be injected by JavaScript -->
         </main>
 
-        <!-- New Section for Gemini Analysis -->
-        <div id="gemini-analysis-card" class="mt-16 p-6 sm:p-8 bg-white rounded-2xl shadow-2xl border-2 border-indigo-200">
-            <h2 class="text-2xl font-bold text-indigo-700 mb-4 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13.75M9 19h12M9 19c0 1.105 1.79 2 4 2s4-.895 4-2c0-.528-.485-1.125-1-1.35M21 16.75c0 1.105 1.79 2 4 2s4-.895 4-2V6L12 3v13.75M21 16.75c0 1.105-1.79 2-4 2s-4-.895-4-2" />
-                </svg>
-                AI Ecologist Analysis
-            </h2>
-            <div id="analysis-output" class="text-gray-700 italic min-h-[50px]">
-                Click an "Analyze Tree ✨" button to get a brief ecological interpretation.
-            </div>
-        </div>
-        <!-- End New Section -->
-
         <div class="mt-16 pt-8 border-t border-gray-200 text-center">
             <p class="text-sm text-gray-500">Visualization powered by JavaScript scaling logic.</p>
         </div>
     </div>
 
     <script>
-        // --- Gemini API Configuration ---
-        const API_KEY = ""; // Placeholder for Canvas environment API Key
-        const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=" + API_KEY;
-        const MAX_RETRIES = 5;
-
-        // Utility function for robust API calls
-        async function exponentialBackoffFetch(url, options, maxRetries = MAX_RETRIES) {
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (response.status === 429 && i < maxRetries - 1) {
-                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                        continue; // Retry
-                    }
-                    if (!response.ok) {
-                        throw new Error(`API call failed with status: ${response.status}`);
-                    }
-                    return response.json();
-                } catch (error) {
-                    if (i === maxRetries - 1) {
-                        console.error("Fetch failed after multiple retries:", error);
-                        throw error;
-                    }
-                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-            }
-            throw new Error("Exhausted all retries.");
-        }
-
-        /**
-         * Calls the Gemini API to get an ecological analysis of the tree data.
-         * @param {string} type - Tree species (e.g., "Douglas Fir").
-         * @param {number} diameter - Tree diameter in cm.
-         */
-        async function analyzeTree(type, diameter) {
-            const outputElement = document.getElementById('analysis-output');
-            const analysisCard = document.getElementById('gemini-analysis-card');
-
-            // 1. Set Loading State
-            outputElement.innerHTML = `<span class="text-indigo-500">Analyzing ${type} (D: ${diameter.toFixed(1)} cm)... <svg class="animate-spin h-5 w-5 inline ml-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>`;
-            analysisCard.scrollIntoView({ behavior: 'smooth' });
-
-            const systemPrompt = "You are a concise forest ecologist. Based on the provided tree species and its diameter in centimeters, provide a single, short paragraph (under 50 words) that interprets the tree's likely health, age, or ecological significance. Do not use markdown formatting like asterisks or headings.";
-            const userQuery = `Provide an ecological interpretation for a ${type} with a diameter of ${diameter.toFixed(1)} cm.`;
-
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-            };
-
-            try {
-                const response = await exponentialBackoffFetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const resultText = response?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                if (resultText) {
-                    outputElement.innerHTML = `
-                        <p class="text-lg font-medium text-gray-900">${type} #${treeData.find(t => t.type === type && t.diameter === diameter).index} Analysis:</p>
-                        <p>${resultText}</p>
-                    `;
-                } else {
-                    outputElement.innerHTML = '<span class="text-red-500">Analysis failed: Could not retrieve text from AI.</span>';
-                }
-
-            } catch (error) {
-                outputElement.innerHTML = `<span class="text-red-500">Error during API call: ${error.message}. Please check your connection or API configuration.</span>`;
-            }
-        }
-
         // --- Visualization Logic ---
         const treeData = [
-            // Data provided by the user, now grouped by site and assigned an original index for clarity
-            { type: "Douglas Fir", index: 1, diameter: 108, site: "Site One" },
-            { type: "Douglas Fir", index: 2, diameter: 99, site: "Site Two" },
-            { type: "Douglas Fir", index: 3, diameter: 103, site: "Site Two" },
-            { type: "Douglas Fir", index: 4, diameter: 118, site: "Site Two" },
-            { type: "Douglas Fir", index: 5, diameter: 23, site: "Site One" },
-            // Cedars
-            { type: "Cedar", index: 1, diameter: 82, site: "Site Two" },
-            { type: "Cedar", index: 2, diameter: 134, site: "Site Two" },
-            { type: "Cedar", index: 3, diameter: 143, site: "Site One" }
+            // Data provided by the user (Girth in cm), and calculated heights
+            { type: "Douglas Fir", girth: 340, site: "Site Two", condition: "6/9", height_min: 40, height_max: 60 },
+            { type: "Douglas Fir", girth: 313, site: "Site Two", condition: "6/9", height_min: 35, height_max: 55 },
+            { type: "Douglas Fir", girth: 326, site: "Site Two", condition: "6/9", height_min: 38, height_max: 58 },
+            { type: "Cedar", girth: 258, site: "Site Two", condition: "5/9", height_min: 18, height_max: 35 },
+            { type: "Cedar", girth: 421, site: "Site Two", condition: "5/9", height_min: 30, height_max: 50 },
+            { type: "Cedar", girth: 451, site: "Site One", condition: "8/9", height_min: 35, height_max: 55 },
+            { type: "Douglas Fir", girth: 373, site: "Site One", condition: "7/9", height_min: 45, height_max: 65 },
+            { type: "Douglas Fir", girth: 23, site: "Site One", condition: "6/9", height_min: 4, height_max: 8 },
         ];
 
         const PI = Math.PI;
-        const MAX_VISUAL_SIZE = 160; 
+        const MAX_VISUAL_SIZE = 160; // Max diameter size for the circle (in pixels)
+        const MAX_CONTAINER_HEIGHT = 150; // Total height of the container (with padding)
+        const CONTAINER_PADDING = 2; 
+        // Max visual height of the drawing area (150 - 4 = 146px)
+        const MAX_HEIGHT_VISUAL = MAX_CONTAINER_HEIGHT - (CONTAINER_PADDING * 2); 
+        
+        // Realistic wood tones and corresponding card colors
+        const typeColors = {
+            'Douglas Fir': { baseColor: '#8D4C3A', text: 'text-red-900', lightBg: 'bg-red-50', hover: 'hover:bg-red-100', icon: '🌲', heightColor: '#14532d' },
+            'Cedar': { baseColor: '#B6886A', text: 'text-amber-800', lightBg: 'bg-amber-100', hover: 'hover:bg-amber-200', icon: '🌳', heightColor: '#533a14' }
+        };
 
-        // 1. Calculate Circumference and find the overall Max Diameter
+        // 1. Calculate DBH, Average Height, and find the overall Max Diameter/Height
         let maxDiameter = 0;
+        let maxHeight = 0;
         treeData.forEach(tree => {
-            tree.circumference = tree.diameter * PI;
+            tree.diameter = tree.girth / PI; 
+            tree.height_avg = (tree.height_min + tree.height_max) / 2;
+            
             if (tree.diameter > maxDiameter) {
                 maxDiameter = tree.diameter;
             }
+            if (tree.height_max > maxHeight) {
+                maxHeight = tree.height_max;
+            }
         });
 
-        // 2. Set Scaling Factor
-        const scaleFactor = MAX_VISUAL_SIZE / maxDiameter;
+        const maxCircumference = maxDiameter * PI;
+        
+        // 2. Set Scaling Factors
+        const diameterScaleFactor = MAX_VISUAL_SIZE / maxDiameter;
+        
+        const MAX_COMPARISON_WIDTH = 250;
+        const circumferenceScaleFactor = MAX_COMPARISON_WIDTH / maxCircumference;
+
+        // Scale factor: pixels per meter
+        const heightScaleFactor = MAX_HEIGHT_VISUAL / maxHeight;
+
+
+        /**
+         * Determines the Tailwind color class based on the condition score.
+         */
+        function getConditionColor(scoreString) {
+            try {
+                const score = (scoreString.includes('/')) ? parseInt(scoreString.split('/')[0]) : parseInt(scoreString);
+                if (score >= 8) {
+                    return 'text-green-600'; // Excellent
+                } else if (score >= 6) {
+                    return 'text-amber-600'; // Good
+                } else {
+                    return 'text-red-600'; // Fair/Poor
+                }
+            } catch (e) {
+                console.error("Invalid condition score format:", scoreString, e);
+                return 'text-gray-500';
+            }
+        }
+
 
         /**
          * Renders the tree data visualization into the DOM, grouped by site.
@@ -202,79 +246,152 @@
                 const treeGrid = document.createElement('div');
                 treeGrid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6';
 
-                trees.forEach((tree) => {
-                    const typeColors = {
-                        'Douglas Fir': { bg: 'bg-green-600', text: 'text-green-800', lightBg: 'bg-green-50', hover: 'hover:bg-green-100' },
-                        'Cedar': { bg: 'bg-amber-600', text: 'text-amber-800', lightBg: 'bg-amber-50', hover: 'hover:bg-amber-100' }
-                    };
-                    const colors = typeColors[tree.type] || { bg: 'bg-gray-500', text: 'text-gray-800', lightBg: 'bg-gray-50', hover: 'hover:bg-gray-100' };
+                trees.forEach((tree, index) => {
+                    const colors = typeColors[tree.type];
 
-                    const visualDiameter = tree.diameter * scaleFactor;
+                    const visualDiameter = tree.diameter * diameterScaleFactor;
+                    const visualCircumference = tree.girth * circumferenceScaleFactor;
+                    
+                    // Scaled heights from the base (0m). 
+                    const visualHeightMin = tree.height_min * heightScaleFactor;
+                    const visualHeightMax = tree.height_max * heightScaleFactor;
+                    const visualHeight = tree.height_avg * heightScaleFactor;
+
+
                     const diameter = tree.diameter.toFixed(1);
-                    const circumference = tree.circumference.toFixed(1);
+                    const circumference = tree.girth.toFixed(1);
+                    const conditionColor = getConditionColor(tree.condition);
 
                     const treeCard = document.createElement('div');
                     treeCard.className = `flex flex-col p-4 ${colors.lightBg} rounded-xl shadow-lg transition duration-300 transform ${colors.hover} hover:shadow-xl`;
                     
                     
-                    // --- Top Row: Circle and Info ---
+                    // --- Top Row: Circle (DBH) and Height Visualization ---
                     const topRow = document.createElement('div');
-                    topRow.className = 'flex flex-row items-center mb-3';
+                    topRow.className = 'flex flex-row items-start mb-3';
                     
-                    // 1. Circle Container (Diameter, D)
+                    // 1. Circle Container (Diameter, D) - DBH visualization
                     const circleContainer = document.createElement('div');
                     circleContainer.className = 'flex items-center justify-center flex-shrink-0 mr-4';
                     circleContainer.style.width = `${MAX_VISUAL_SIZE/2}px`;
                     circleContainer.style.height = `${MAX_VISUAL_SIZE/2}px`;
 
                     const circle = document.createElement('div');
-                    circle.className = `tree-circle flex items-center justify-center ${colors.bg} rounded-full shadow-md`;
-                    circle.style.width = `${visualDiameter / 2}px`;
-                    circle.style.height = `${visualDiameter / 2}px`;
-                    circle.style.minWidth = '15px'; 
-                    circle.style.minHeight = '15px';
-
-                    circle.innerHTML = `<span class="text-white text-[10px] font-semibold p-1 pointer-events-none opacity-90 text-center">D: ${diameter}</span>`;
+                    circle.className = `tree-circle woodgrain rounded-full flex items-center justify-center shadow-md`;
+                    circle.style.cssText = `--wood-color: ${colors.baseColor}; width: ${visualDiameter / 2}px; height: ${visualDiameter / 2}px; min-width: 15px; min-height: 15px;`;
+                    
+                    circle.innerHTML = ''; 
                     circleContainer.appendChild(circle);
                     
-                    // 2. Info: Name and Diameter
+                    // 2. Info: Name, DBH, Condition
                     const infoBlock = document.createElement('div');
                     infoBlock.className = 'flex flex-col flex-grow min-w-0';
                     infoBlock.innerHTML = `
-                        <p class="text-sm font-bold text-gray-800 truncate">${tree.type} #${tree.index}</p>
-                        <p class="text-xs text-gray-600">D: ${diameter} cm</p>
+                        <p class="text-sm font-bold ${colors.text} truncate">${colors.icon} ${tree.type} #${index + 1}</p>
+                        <p class="text-xs text-gray-600">DBH (D): ${diameter} cm</p>
+                        <p class="text-xs font-semibold ${conditionColor}">Condition: ${tree.condition}</p>
                     `;
+                    
                     topRow.appendChild(circleContainer);
                     topRow.appendChild(infoBlock);
 
-                    // --- Circumference Line ---
-                    const circumferenceBlock = document.createElement('div');
-                    circumferenceBlock.className = 'w-full flex flex-col items-start pt-2 border-t border-gray-200 mb-3';
+                    // 3. Height Visualization (Vertical Bar & Ruler)
+                    const heightBlock = document.createElement('div');
+                    heightBlock.className = 'flex flex-col items-end flex-shrink-0';
                     
+                    const heightViz = document.createElement('div');
+                    heightViz.className = 'height-bar-container';
+
+                    // --- Build Ruler Ticks ---
+                    let rulerHtml = '';
+                    const tickInterval = 10; // Ticks every 10 meters
+                    
+                    // Create ticks from 0m up to the max height
+                    for (let m = 0; m <= maxHeight; m += tickInterval) {
+                        const visualTickPosition = m * heightScaleFactor;
+                        
+                        // Stop drawing ticks if they exceed the visual area
+                        if (visualTickPosition > MAX_HEIGHT_VISUAL) continue;
+
+                        // Ruler tick line (centered vertically on the bottom position)
+                        rulerHtml += `
+                            <div 
+                                class="ruler-tick-line" 
+                                style="bottom: ${visualTickPosition}px;">
+                            </div>
+                            <span 
+                                class="ruler-label" 
+                                style="bottom: ${visualTickPosition}px;">${m}m</span>
+                        `;
+                    }
+                    // --- End Ruler Ticks ---
+
+
+                    // Elements are centered and positioned correctly from the bottom (0px is the base line)
+                    heightViz.innerHTML = `
+                        <div class="relative w-full h-full">
+                            
+                            ${rulerHtml}
+
+                            <!-- Solid Bar representing average height, starting at 0m -->
+                            <div 
+                                class="average-height-bar" 
+                                style="height: ${visualHeight}px;">
+                            </div>
+                            
+                            <!-- Min Height Marker (Dotted Line) -->
+                            <div 
+                                class="height-range-marker" 
+                                style="bottom: ${visualHeightMin}px;">
+                            </div>
+
+                            <!-- Max Height Marker (Dotted Line) -->
+                            <div 
+                                class="height-range-marker" 
+                                style="bottom: ${visualHeightMax}px;">
+                            </div>
+
+                            <!-- GROUND LINE (The 0m Reference) -->
+                            <div class="ground-line"></div>
+                        </div>
+                    `;
+
+                    const heightLabel = document.createElement('p');
+                    heightLabel.className = `text-[10px] font-bold text-gray-700 text-center mt-1`;
+                    heightLabel.innerHTML = `
+                        ${tree.height_avg.toFixed(1)} m (Avg) <br>
+                        <span class="text-[9px] font-normal text-gray-500">(${tree.height_min}m - ${tree.height_max}m)</span>
+                    `;
+
+                    heightBlock.appendChild(heightViz);
+                    heightBlock.appendChild(heightLabel);
+
+                    topRow.appendChild(heightBlock);
+                    
+                    // --- Circumference Line (Girth, C) ---
+                    const circumferenceBlock = document.createElement('div');
+                    circumferenceBlock.className = 'w-full flex flex-col items-start pt-2 border-t border-gray-200 mb-1';
+                    
+                    const comparisonContainer = document.createElement('div');
+                    comparisonContainer.className = 'girth-comparison-container h-3 bg-gray-300 rounded-full relative overflow-hidden my-1';
+
                     const circumferenceLine = document.createElement('div');
-                    circumferenceLine.className = 'circumference-line bg-gray-900 h-1 rounded-full relative overflow-visible';
-                    const lineScaleFactor = (MAX_VISUAL_SIZE / 2) / maxDiameter; 
-                    circumferenceLine.style.width = `${tree.circumference * lineScaleFactor}px`;
-                    circumferenceLine.style.maxWidth = `${MAX_VISUAL_SIZE * PI / 2}px`;
+                    circumferenceLine.className = 'circumference-line bg-gray-900 h-full absolute top-0 left-0';
+                    circumferenceLine.style.width = `${visualCircumference}px`;
+                    
+                    comparisonContainer.appendChild(circumferenceLine);
 
                     const circumferenceLabel = document.createElement('p');
                     circumferenceLabel.className = `text-[11px] font-semibold text-gray-700 mt-1`;
-                    circumferenceLabel.innerHTML = `C: ${circumference} cm`; 
+                    circumferenceLabel.innerHTML = `Girth (C): ${circumference} cm`; 
                     
-                    circumferenceBlock.appendChild(circumferenceLine);
+                    circumferenceBlock.appendChild(comparisonContainer);
                     circumferenceBlock.appendChild(circumferenceLabel);
 
-
-                    // --- Gemini Button ---
-                    const analyzeButton = document.createElement('button');
-                    analyzeButton.className = `w-full px-3 py-1.5 text-xs font-semibold rounded-lg text-white bg-indigo-500 hover:bg-indigo-600 transition duration-150 shadow-md`;
-                    analyzeButton.innerHTML = 'Analyze Tree ✨';
-                    analyzeButton.onclick = () => analyzeTree(tree.type, tree.diameter);
 
                     // --- Assemble Card ---
                     treeCard.appendChild(topRow);
                     treeCard.appendChild(circumferenceBlock);
-                    treeCard.appendChild(analyzeButton);
 
                     treeGrid.appendChild(treeCard);
                 });
