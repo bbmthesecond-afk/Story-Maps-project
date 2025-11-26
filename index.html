@@ -78,7 +78,7 @@
             // Original Index 5, 6, 7 (Moved to Site Two)
             { type: "Cedar", girth: 451, site: "Site Two", condition: "8/9", height_min: 35, height_max: 55, originalIndex: 5 },
             { type: "Douglas Fir", girth: 373, site: "Site Two", condition: "7/9", height_min: 45, height_max: 65, originalIndex: 6 },
-            { type: "Douglas Fir", girth: 23, site: "Site Two", condition: "6/9", height_min: 4, height_max: 8, originalIndex: 7 },
+            { type: "Douglas Fir", girth: 23, site: "Site Two", condition: "6/9", height_min: 4, height_max: 8, originalIndex: 7 }, // This tree becomes Douglas Fir #5
         ];
 
         const PI = Math.PI;
@@ -93,6 +93,7 @@
         // 2. Calculate DBH and find the overall Max Diameter
         let maxDiameter = 0;
         treeData.forEach(tree => {
+            // Calculate Diameter at Breast Height (DBH)
             tree.diameter = tree.girth / PI; 
             if (tree.diameter > maxDiameter) {
                 maxDiameter = tree.diameter;
@@ -149,7 +150,8 @@
 
 
         /**
-         * Renders the tree data visualization into the DOM, grouped by site.
+         * Renders the tree data visualization into the DOM, grouped by site, 
+         * and includes the final summary block.
          */
         function renderTrees() {
             const container = document.getElementById('visualization-container');
@@ -166,23 +168,38 @@
                 return acc;
             }, {});
 
+            // Use black/dark gray for the site headers
             const siteHeaderColors = {
-                'Site One': 'text-indigo-700',
-                'Site Two': 'text-blue-700',
+                'Site One': 'text-gray-900', 
+                'Site Two': 'text-gray-900', 
             }
-            // Ensure Site One (now 5 trees) is listed before Site Two (now 3 trees)
             const siteOrder = ['Site One', 'Site Two']; 
 
             siteOrder.forEach(siteName => {
                 const trees = groupedData[siteName];
                 if (!trees || trees.length === 0) return;
 
+                // Logic to count species per site for the header
+                const speciesCount = trees.reduce((counts, tree) => {
+                    counts[tree.type] = (counts[tree.type] || 0) + 1;
+                    return counts;
+                }, {});
+
+                const countParts = [];
+                // Sort keys alphabetically (Cedar then Douglas Fir) for consistent display
+                Object.keys(speciesCount).sort().forEach(type => {
+                    countParts.push(`${speciesCount[type]} ${type}`);
+                });
+                const speciesCountString = `(${countParts.join(', ')})`;
+                // End species count logic
+
                 const group = document.createElement('div');
                 group.className = 'p-5 sm:p-6 bg-white rounded-2xl shadow-xl';
 
                 const headerColorClass = siteHeaderColors[siteName] || 'text-gray-800';
                 
-                group.innerHTML = `<h2 class="text-2xl font-bold mb-6 ${headerColorClass} border-b border-current pb-2">${siteName} Samples (${trees.length} Trees)</h2>`;
+                // Updated header with species counts
+                group.innerHTML = `<h2 class="text-2xl font-bold mb-6 ${headerColorClass} border-b border-gray-300 pb-2">${siteName} Samples ${speciesCountString}</h2>`;
 
                 const treeGrid = document.createElement('div');
                 treeGrid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8'; 
@@ -222,10 +239,10 @@
                     // 2. Info: Name, DBH, Condition
                     const infoBlock = document.createElement('div');
                     infoBlock.className = 'flex flex-col flex-grow min-w-0'; 
-                    // Use the newly assigned tree.treeId for consecutive numbering
                     infoBlock.innerHTML = `
                         <p class="text-sm font-bold ${colors.text} truncate">${colors.icon} ${tree.type} #${tree.treeId}</p>
-                        <p class="text-xs text-gray-600">DBH (D): ${diameter} cm</p>
+                        <!-- Tree DBH: -->
+                        <p class="text-[11px] font-semibold text-gray-700">Tree DBH: ${diameter} cm</p>
                         <p class="text-xs font-semibold ${conditionColor}">Condition: ${tree.condition}</p>
                         <p class="text-xs text-gray-500 mt-2">
                             Height Range: ${tree.height_min}m to ${tree.height_max}m
@@ -249,8 +266,9 @@
                     comparisonContainer.appendChild(circumferenceLine);
 
                     const circumferenceLabel = document.createElement('p');
-                    circumferenceLabel.className = `text-[11px] font-semibold text-gray-700 mt-1`;
-                    circumferenceLabel.innerHTML = `Girth (C): ${circumference} cm`; 
+                    // Tree Girth:
+                    circumferenceLabel.className = `text-xs text-gray-600 mt-1`; 
+                    circumferenceLabel.innerHTML = `Tree Girth: ${circumference} cm`; 
                     
                     circumferenceBlock.appendChild(comparisonContainer);
                     circumferenceBlock.appendChild(circumferenceLabel);
@@ -266,6 +284,77 @@
                 group.appendChild(treeGrid);
                 container.appendChild(group);
             });
+            
+            // --- GRAND TOTAL AND AVERAGE DBH SECTION ---
+            
+            // Calculate grand totals and averages across all data
+            const grandTotalTrees = treeData.length;
+            const totalCedar = treeData.filter(t => t.type === 'Cedar').length;
+            const totalDouglasFir = treeData.filter(t => t.type === 'Douglas Fir').length;
+            
+            const speciesStats = treeData.reduce((stats, tree) => {
+                const type = tree.type;
+                if (!stats[type]) {
+                    // Initialize stats object, including an excluded flag for marking the exclusion note later
+                    stats[type] = { totalDiameter: 0, count: 0, excluded: false };
+                }
+
+                // Check for exclusion: Douglas Fir #5 (which has treeId 5)
+                if (type === "Douglas Fir" && tree.treeId === 5) {
+                    stats[type].excluded = true;
+                    // Skip aggregation for this specific tree
+                    return stats; 
+                }
+                
+                stats[type].totalDiameter += tree.diameter;
+                stats[type].count++;
+                return stats;
+            }, {});
+
+            Object.keys(speciesStats).forEach(type => {
+                const stats = speciesStats[type];
+                // Check for division by zero just in case
+                stats.averageDBH = (stats.count > 0) ? (stats.totalDiameter / stats.count).toFixed(1) : "0.0";
+            });
+
+            // Render the summary content
+            const summary = document.createElement('div');
+            summary.className = 'p-6 bg-gray-50 rounded-2xl shadow-xl mt-12 border border-gray-200';
+
+            // UPDATED: Title to "Sample Summary"
+            let summaryHtml = '<h2 class="text-2xl font-extrabold text-gray-900 mb-4 border-b border-gray-300 pb-2">Sample Summary</h2>';
+            
+            // UPDATED: Added species count breakdown
+            summaryHtml += `<p class="text-lg font-bold mb-4 text-gray-800">Grand Total Trees Surveyed: <span class="text-green-700">${grandTotalTrees}</span> (${totalCedar} Cedar, ${totalDouglasFir} Douglas Fir)</p>`;
+
+            summaryHtml += '<h3 class="text-xl font-semibold text-gray-700 mb-2">Average DBH per Species (cm)</h3>';
+            summaryHtml += '<div class="space-y-2">';
+
+            // Display statistics, sorted alphabetically by species name
+            Object.keys(speciesStats).sort().forEach(type => {
+                const stats = speciesStats[type];
+                const colors = typeColors[type];
+                const icon = colors ? colors.icon : '🌳';
+                const textColor = colors ? colors.text : 'text-gray-700';
+
+                let exclusionNote = '';
+                // Add the exclusion note if the flag was set
+                if (stats.excluded) {
+                    exclusionNote = ' <span class="text-gray-500 font-normal ml-1"> (Excluding Douglas Fir #5)</span>';
+                }
+
+                summaryHtml += `<p class="text-base ${textColor} flex items-center ml-4">
+                    ${icon} <span class="font-bold ml-2">${type}:</span> 
+                    <span class="font-extrabold text-lg ml-2">${stats.averageDBH} cm</span>
+                    ${exclusionNote}
+                </p>`;
+            });
+
+            summaryHtml += '</div>';
+            summary.innerHTML = summaryHtml;
+            container.appendChild(summary);
+            // --- END SUMMARY SECTION ---
+
         }
 
         // Run the rendering when the document is fully loaded
