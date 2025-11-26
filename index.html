@@ -1,9 +1,9 @@
-<!DOCTYPE html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proportional Representation of Tree Measurements</title>
+    <title>Proportional Representation of Tree Measurements (Corrected)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom styles for the visualization */
@@ -42,9 +42,6 @@
             width: 100%;
             max-width: 250px;
         }
-        
-        /* NOTE: Height/Ruler related CSS classes have been removed for simplicity. */
-
     </style>
 </head>
 <body class="p-4 md:p-8 lg:p-12">
@@ -53,7 +50,7 @@
         <header class="text-center mb-10">
             <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">Proportional Representation of Tree Measurements</h1>
             <p class="text-lg text-gray-600">A proportional visualization of the tree diameter (DBH) and girth for each sample.</p>
-            <div class="mt-3 text-sm text-gray-500 italic"></div>
+            <div class="mt-3 text-sm text-gray-500 italic">Inventory sites and numbering have been corrected.</div>
         </header>
 
         <main id="visualization-container" class="space-y-8">
@@ -67,16 +64,21 @@
 
     <script>
         // --- Visualization Logic ---
+        
+        // 1. ORIGINAL DATA (Site Two and Site One swapped as requested)
+        // Original 5 trees from "Site Two" are now "Site One"
+        // Original 3 trees from "Site One" are now "Site Two"
         const treeData = [
-            // Data provided by the user (Girth in cm), and calculated heights
-            { type: "Douglas Fir", girth: 340, site: "Site Two", condition: "6/9", height_min: 40, height_max: 60 },
-            { type: "Douglas Fir", girth: 313, site: "Site Two", condition: "6/9", height_min: 35, height_max: 55 },
-            { type: "Douglas Fir", girth: 326, site: "Site Two", condition: "6/9", height_min: 38, height_max: 58 },
-            { type: "Cedar", girth: 258, site: "Site Two", condition: "5/9", height_min: 18, height_max: 35 },
-            { type: "Cedar", girth: 421, site: "Site Two", condition: "5/9", height_min: 30, height_max: 50 },
-            { type: "Cedar", girth: 451, site: "Site One", condition: "8/9", height_min: 35, height_max: 55 },
-            { type: "Douglas Fir", girth: 373, site: "Site One", condition: "7/9", height_min: 45, height_max: 65 },
-            { type: "Douglas Fir", girth: 23, site: "Site One", condition: "6/9", height_min: 4, height_max: 8 },
+            // Original Index 0, 1, 2, 3, 4 (Moved to Site One)
+            { type: "Douglas Fir", girth: 340, site: "Site One", condition: "6/9", height_min: 40, height_max: 60, originalIndex: 0 },
+            { type: "Douglas Fir", girth: 313, site: "Site One", condition: "6/9", height_min: 35, height_max: 55, originalIndex: 1 },
+            { type: "Douglas Fir", girth: 326, site: "Site One", condition: "6/9", height_min: 38, height_max: 58, originalIndex: 2 },
+            { type: "Cedar", girth: 258, site: "Site One", condition: "5/9", height_min: 18, height_max: 35, originalIndex: 3 },
+            { type: "Cedar", girth: 421, site: "Site One", condition: "5/9", height_min: 30, height_max: 50, originalIndex: 4 },
+            // Original Index 5, 6, 7 (Moved to Site Two)
+            { type: "Cedar", girth: 451, site: "Site Two", condition: "8/9", height_min: 35, height_max: 55, originalIndex: 5 },
+            { type: "Douglas Fir", girth: 373, site: "Site Two", condition: "7/9", height_min: 45, height_max: 65, originalIndex: 6 },
+            { type: "Douglas Fir", girth: 23, site: "Site Two", condition: "6/9", height_min: 4, height_max: 8, originalIndex: 7 },
         ];
 
         const PI = Math.PI;
@@ -88,7 +90,7 @@
             'Cedar': { baseColor: '#B6886A', text: 'text-amber-800', lightBg: 'bg-amber-100', hover: 'hover:bg-amber-200', icon: '🌳', heightColor: '#533a14' }
         };
 
-        // 1. Calculate DBH and find the overall Max Diameter
+        // 2. Calculate DBH and find the overall Max Diameter
         let maxDiameter = 0;
         treeData.forEach(tree => {
             tree.diameter = tree.girth / PI; 
@@ -99,11 +101,31 @@
 
         const maxCircumference = maxDiameter * PI;
         
-        // 2. Set Scaling Factors
+        // 3. Set Scaling Factors
         const diameterScaleFactor = MAX_VISUAL_SIZE / maxDiameter;
         
         const MAX_COMPARISON_WIDTH = 250;
         const circumferenceScaleFactor = MAX_COMPARISON_WIDTH / maxCircumference;
+
+        // 4. SORT AND RENUMBER TREES (Species first, then original recorded order)
+        treeData.sort((a, b) => {
+            // Primary sort by type (species)
+            if (a.type < b.type) return -1;
+            if (a.type > b.type) return 1;
+            // Secondary sort by original recorded order (to ensure consistent consecutive numbering)
+            return a.originalIndex - b.originalIndex;
+        });
+
+        // Assign new sequential, species-specific IDs
+        const speciesCounters = {};
+        treeData.forEach(tree => {
+            if (!speciesCounters[tree.type]) {
+                speciesCounters[tree.type] = 0;
+            }
+            speciesCounters[tree.type]++;
+            // This is the consecutive, ordered ID used in the display
+            tree.treeId = speciesCounters[tree.type]; 
+        });
 
 
         /**
@@ -134,7 +156,7 @@
             if (!container) return;
             container.innerHTML = ''; 
 
-            // Group data by SITE
+            // Group data by SITE (uses the new, swapped site values)
             const groupedData = treeData.reduce((acc, tree) => {
                 const siteName = tree.site || "Ungrouped";
                 if (!acc[siteName]) {
@@ -148,7 +170,8 @@
                 'Site One': 'text-indigo-700',
                 'Site Two': 'text-blue-700',
             }
-            const siteOrder = ['Site One', 'Site Two'];
+            // Ensure Site One (now 5 trees) is listed before Site Two (now 3 trees)
+            const siteOrder = ['Site One', 'Site Two']; 
 
             siteOrder.forEach(siteName => {
                 const trees = groupedData[siteName];
@@ -159,12 +182,13 @@
 
                 const headerColorClass = siteHeaderColors[siteName] || 'text-gray-800';
                 
-                group.innerHTML = `<h2 class="text-2xl font-bold mb-6 ${headerColorClass} border-b border-current pb-2">${siteName} Samples</h2>`;
+                group.innerHTML = `<h2 class="text-2xl font-bold mb-6 ${headerColorClass} border-b border-current pb-2">${siteName} Samples (${trees.length} Trees)</h2>`;
 
                 const treeGrid = document.createElement('div');
                 treeGrid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8'; 
 
-                trees.forEach((tree, index) => {
+                // Iterate over the sorted and ID-assigned trees
+                trees.forEach((tree) => { 
                     const colors = typeColors[tree.type];
 
                     const visualDiameter = tree.diameter * diameterScaleFactor;
@@ -197,10 +221,10 @@
                     
                     // 2. Info: Name, DBH, Condition
                     const infoBlock = document.createElement('div');
-                    // Removed the large right margin since the height block is gone.
                     infoBlock.className = 'flex flex-col flex-grow min-w-0'; 
+                    // Use the newly assigned tree.treeId for consecutive numbering
                     infoBlock.innerHTML = `
-                        <p class="text-sm font-bold ${colors.text} truncate">${colors.icon} ${tree.type} #${index + 1}</p>
+                        <p class="text-sm font-bold ${colors.text} truncate">${colors.icon} ${tree.type} #${tree.treeId}</p>
                         <p class="text-xs text-gray-600">DBH (D): ${diameter} cm</p>
                         <p class="text-xs font-semibold ${conditionColor}">Condition: ${tree.condition}</p>
                         <p class="text-xs text-gray-500 mt-2">
@@ -211,8 +235,6 @@
                     topRow.appendChild(circleContainer);
                     topRow.appendChild(infoBlock);
 
-                    // --- Height visualization removed here ---
-                    
                     // --- Circumference Line (Girth, C) ---
                     const circumferenceBlock = document.createElement('div');
                     circumferenceBlock.className = 'w-full flex flex-col items-start pt-2 border-t border-gray-200 mb-1';
@@ -251,4 +273,3 @@
     </script>
 </body>
 </html>
-
